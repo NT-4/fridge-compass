@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>冷蔵庫コンパス — 冷蔵庫管理アプリ</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1e9e8a">
+<meta name="description" content="冷蔵庫の在庫と賞味期限を管理し、期限が近い食材を優先したレシピを提案する一人暮らし向けアプリ。">
+
+<!-- iOS ホーム画面追加用 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="冷蔵庫コンパス">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="favicon-64.png" sizes="64x64">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <div class="app-title">🧊 冷蔵庫コンパス</div>
+    <div class="app-date" id="today-date"></div>
+  </header>
+
+  <!-- 通知バナー（賞味期限アラート） -->
+  <div id="alert-banner" class="alert-banner hidden">
+    <div class="alert-icon">🔔</div>
+    <div class="alert-body">
+      <div class="alert-title">賞味期限アラート</div>
+      <div class="alert-text" id="alert-text"></div>
+    </div>
+    <button class="alert-close" onclick="dismissAlert()">×</button>
+  </div>
+
+  <!-- メイン画面 -->
+  <main id="main">
+
+    <!-- ===== 在庫画面 ===== -->
+    <section id="screen-stock" class="screen">
+      <div class="section-head">
+        <h2>冷蔵庫の中身</h2>
+        <span class="stock-count" id="stock-count"></span>
+      </div>
+
+      <div class="add-buttons">
+        <button class="add-btn" onclick="openModal('modal-manual')">
+          <span class="add-btn-icon">✏️</span>手入力
+        </button>
+        <button class="add-btn" onclick="openModal('modal-receipt')">
+          <span class="add-btn-icon">🧾</span>レシート撮影
+        </button>
+        <button class="add-btn" onclick="openModal('modal-barcode')">
+          <span class="add-btn-icon">📷</span>バーコード
+        </button>
+      </div>
+
+      <div class="sort-row">
+        <label>並び順：</label>
+        <select id="sort-select" onchange="renderStock()">
+          <option value="expiry">賞味期限が近い順</option>
+          <option value="name">名前順</option>
+          <option value="added">登録が新しい順</option>
+        </select>
+      </div>
+
+      <ul id="stock-list" class="stock-list"></ul>
+      <div id="stock-empty" class="empty-note hidden">
+        在庫がありません。<br>上のボタンから食材を登録しましょう。
+      </div>
+    </section>
+
+    <!-- ===== レシピ提案画面 ===== -->
+    <section id="screen-recipe" class="screen hidden">
+      <div class="section-head"><h2>AIレシピ提案</h2></div>
+      <p class="hint-text">
+        冷蔵庫の在庫をもとに、賞味期限が近い食材を優先して使うレシピをAIが提案します。
+      </p>
+      <button class="primary-btn" id="suggest-btn" onclick="suggestRecipes()">
+        🍳 今日の献立を提案してもらう
+      </button>
+      <div id="ai-thinking" class="ai-thinking hidden">
+        <div class="spinner"></div>
+        <span>AIが在庫と賞味期限を分析中…</span>
+      </div>
+      <div id="recipe-results"></div>
+    </section>
+
+    <!-- ===== 買い物リスト画面 ===== -->
+    <section id="screen-shopping" class="screen hidden">
+      <div class="section-head">
+        <h2>お買い物リスト</h2>
+        <span class="stock-count" id="shopping-count"></span>
+      </div>
+      <p class="hint-text">
+        「購入済み」にチェックを入れると、自動的に冷蔵庫の在庫へ追加されます。
+      </p>
+      <div class="shopping-add-row">
+        <input type="text" id="shopping-input" placeholder="買いたいものをメモ…"
+               onkeydown="if(event.key==='Enter')addShoppingManual()">
+        <button class="small-btn" onclick="addShoppingManual()">追加</button>
+      </div>
+      <ul id="shopping-list" class="shopping-list"></ul>
+      <div id="shopping-empty" class="empty-note hidden">
+        買い物リストは空です。<br>レシピ提案の「不足食材」からも追加できます。
+      </div>
+    </section>
+
+    <!-- ===== 設定画面 ===== -->
+    <section id="screen-settings" class="screen hidden">
+      <div class="section-head"><h2>設定</h2></div>
+      <div class="setting-card">
+        <div class="setting-label">🔔 賞味期限アラート</div>
+        <p class="hint-text">期限の3日前になった食材を、毎日決まった時間にまとめて通知します。</p>
+        <div class="setting-row">
+          <label for="notify-time">通知時刻</label>
+          <input type="time" id="notify-time" onchange="saveNotifyTime()">
+        </div>
+        <button class="small-btn" onclick="testNotify()">通知をテスト表示</button>
+      </div>
+      <div class="setting-card">
+        <div class="setting-label">🧪 プロトタイプについて</div>
+        <p class="hint-text">
+          このアプリは要件定義書に基づくプロトタイプです。
+          レシートOCR・バーコード読取・AIレシピ生成はモック（疑似動作）で、
+          データはこの端末のブラウザ内（localStorage）に保存されます。
+        </p>
+        <button class="small-btn danger" onclick="resetAll()">データを初期化（サンプルに戻す）</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- 下部タブナビ -->
+  <nav class="tab-bar">
+    <button class="tab active" data-screen="stock" onclick="switchScreen('stock')">
+      <span class="tab-icon">🧊</span>在庫
+    </button>
+    <button class="tab" data-screen="recipe" onclick="switchScreen('recipe')">
+      <span class="tab-icon">🍳</span>レシピ提案
+    </button>
+    <button class="tab" data-screen="shopping" onclick="switchScreen('shopping')">
+      <span class="tab-icon">🛒</span>買い物<span id="shopping-badge" class="badge hidden"></span>
+    </button>
+    <button class="tab" data-screen="settings" onclick="switchScreen('settings')">
+      <span class="tab-icon">⚙️</span>設定
+    </button>
+  </nav>
+
+  <!-- ===== モーダル：手入力 ===== -->
+  <div id="modal-manual" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">✏️ 食材を手入力で登録</div>
+      <div class="form-row">
+        <label>食材名</label>
+        <input type="text" id="m-name" placeholder="例：キャベツ">
+      </div>
+      <div class="form-row">
+        <label id="m-qty-label">数量(個)</label>
+        <div class="qty-unit-row">
+          <input type="number" id="m-qty" value="1" min="1">
+          <select id="m-unit">
+            <option value="個">個</option>
+            <option value="ml">ml</option>
+            <option value="g">g</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>カテゴリ</label>
+        <select id="m-category"></select>
+      </div>
+      <div class="form-row">
+        <label>賞味期限</label>
+        <input type="date" id="m-expiry">
+      </div>
+      <div class="modal-actions">
+        <button class="small-btn ghost" onclick="closeModal('modal-manual')">キャンセル</button>
+        <button class="small-btn" onclick="submitManual()">登録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== モーダル：レシートOCR ===== -->
+  <div id="modal-receipt" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">🧾 レシート撮影で一括登録</div>
+      <div id="receipt-step1">
+        <p class="hint-text">レシートを撮影すると、AI/OCRが食材名を自動で読み取ります。<br>
+        （プロトタイプのため、読み取り結果はサンプルで再現します）</p>
+        <label class="file-drop">
+          📸 レシート写真を選択
+          <input type="file" accept="image/*" id="receipt-file" onchange="startOcr()">
+        </label>
+        <button class="primary-btn" onclick="startOcr()">サンプルレシートで試す</button>
+      </div>
+      <div id="receipt-step2" class="hidden">
+        <div class="ai-thinking"><div class="spinner"></div><span>OCR解析中…食材名を抽出しています</span></div>
+      </div>
+      <div id="receipt-step3" class="hidden">
+        <p class="hint-text">読み取り結果です。賞味期限はカテゴリごとの目安が自動セットされています。必要なら修正してください。</p>
+        <div id="ocr-results"></div>
+        <div class="modal-actions">
+          <button class="small-btn ghost" onclick="closeModal('modal-receipt')">キャンセル</button>
+          <button class="small-btn" onclick="submitOcr()">まとめて在庫に登録</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== モーダル：バーコード ===== -->
+  <div id="modal-barcode" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">📷 バーコードで登録</div>
+      <p class="hint-text">商品のJANコードを読み取って商品名を特定します。<br>
+      （プロトタイプのため、スキャンはシミュレーションです）</p>
+      <button class="primary-btn" onclick="simulateScan()">📡 スキャンをシミュレート</button>
+      <div class="form-row">
+        <label>JANコード直接入力</label>
+        <input type="text" id="jan-input" placeholder="例：4901111111111" maxlength="13">
+      </div>
+      <button class="small-btn" onclick="lookupJan()">コードから検索</button>
+      <div id="barcode-result" class="barcode-result hidden"></div>
+      <div class="modal-actions">
+        <button class="small-btn ghost" onclick="closeModal('modal-barcode')">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- iOS「ホーム画面に追加」案内 -->
+  <div id="ios-install" class="ios-install hidden">
+    <button class="ios-install-close" onclick="dismissIosInstall()">×</button>
+    <div class="ios-install-title">📲 アプリとして使えます</div>
+    <div class="ios-install-body">
+      下の <b>共有ボタン</b> <span class="ios-share-icon">􀈂</span> をタップ →
+      <b>「ホーム画面に追加」</b> を選ぶと、アプリのように全画面で起動できます（オフラインでも動作）。
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="pwa.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "冷蔵庫コンパス — 冷蔵庫管理アプリ",
+  "short_name": "冷蔵庫コンパス",
+  "description": "冷蔵庫の在庫と賞味期限を管理し、期限が近い食材を優先したレシピを提案。不足食材は買い物リストへ、購入済みチェックで在庫に自動反映されます。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f7f9",
+  "theme_color": "#1e9e8a",
+  "categories": ["food", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "今日の献立を提案",
+      "short_name": "レシピ提案",
+      "url": "./index.html?screen=recipe"
+    },
+    {
+      "name": "お買い物リスト",
+      "short_name": "買い物",
+      "url": "./index.html?screen=shopping"
+    }
+  ]
+}
