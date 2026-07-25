@@ -115,6 +115,29 @@
     <section id="screen-settings" class="screen hidden">
       <div class="section-head"><h2>設定</h2></div>
       <div class="setting-card">
+        <div class="setting-label">🤖 AI連携（任意）</div>
+        <p class="hint-text">
+          Anthropic APIキーを設定すると、レシート撮影からの食材自動読み取りとAIによるレシピ提案が使えるようになります。<br>
+          <b>未設定のままでも、アプリの機能はすべてそのまま使えます</b>（レシートはサンプルで、レシピ提案はルールベースで動作します）。
+        </p>
+        <div class="form-row">
+          <label for="api-key-input">Anthropic APIキー</label>
+          <input type="password" id="api-key-input" placeholder="sk-ant-...">
+        </div>
+        <div class="setting-row">
+          <label><input type="checkbox" id="api-key-show" onchange="toggleApiKeyVisibility()"> キーを表示する</label>
+        </div>
+        <div class="api-key-actions">
+          <button class="small-btn" onclick="saveApiKey()">保存</button>
+          <button class="small-btn ghost" id="api-key-test-btn" onclick="testApiKey()">接続テスト</button>
+          <button class="small-btn danger" onclick="clearApiKey()">削除</button>
+        </div>
+        <div id="api-key-status" class="hint-text"></div>
+        <p class="hint-text" style="font-size:11px;">
+          ⚠️ APIキーはこの端末のブラウザ内（localStorage）にのみ保存され、送信先はAnthropicの公式API（api.anthropic.com）のみです。共用端末で利用した場合は、使用後に「削除」しておくことをおすすめします。利用量に応じてAnthropicから課金が発生します。
+        </p>
+      </div>
+      <div class="setting-card">
         <div class="setting-label">🔔 賞味期限アラート</div>
         <p class="hint-text">期限の3日前になった食材を、毎日決まった時間にまとめて通知します。</p>
         <div class="setting-row">
@@ -126,9 +149,10 @@
       <div class="setting-card">
         <div class="setting-label">🧪 プロトタイプについて</div>
         <p class="hint-text">
-          このアプリは要件定義書に基づくプロトタイプです。
-          レシートOCR・バーコード読取・AIレシピ生成はモック（疑似動作）で、
-          データはこの端末のブラウザ内（localStorage）に保存されます。
+          このアプリは要件定義書に基づくプロトタイプです。<br>
+          バーコード読取・商品照会は実際に動作します（Open Food Factsを利用。日本国内商品は未登録の場合があります）。<br>
+          レシートOCR・AIレシピ生成は、設定画面でAPIキーを登録すると実際にAIが動作します。未登録の場合はデモ（モック）動作になります。<br>
+          データはすべてこの端末のブラウザ内（localStorage）に保存されます。
         </p>
         <button class="small-btn danger" onclick="resetAll()">データを初期化（サンプルに戻す）</button>
       </div>
@@ -154,7 +178,10 @@
   <!-- ===== モーダル：手入力 ===== -->
   <div id="modal-manual" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-head">✏️ 食材を手入力で登録</div>
+      <div class="modal-head">
+        <span class="modal-title">✏️ 食材を手入力で登録</span>
+        <button class="modal-close" onclick="closeModal('modal-manual')" aria-label="閉じる">×</button>
+      </div>
       <div class="form-row">
         <label>食材名</label>
         <input type="text" id="m-name" placeholder="例：キャベツ">
@@ -188,15 +215,18 @@
   <!-- ===== モーダル：レシートOCR ===== -->
   <div id="modal-receipt" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-head">🧾 レシート撮影で一括登録</div>
+      <div class="modal-head">
+        <span class="modal-title">🧾 レシート撮影で一括登録</span>
+        <button class="modal-close" onclick="closeModal('modal-receipt')" aria-label="閉じる">×</button>
+      </div>
       <div id="receipt-step1">
         <p class="hint-text">レシートを撮影すると、AI/OCRが食材名を自動で読み取ります。<br>
-        （プロトタイプのため、読み取り結果はサンプルで再現します）</p>
+        （APIキー未設定の場合は、読み取り結果をサンプルで再現します）</p>
         <label class="file-drop">
           📸 レシート写真を選択
-          <input type="file" accept="image/*" id="receipt-file" onchange="startOcr()">
+          <input type="file" accept="image/*" id="receipt-file" onchange="handleReceiptFile(this)">
         </label>
-        <button class="primary-btn" onclick="startOcr()">サンプルレシートで試す</button>
+        <button class="primary-btn" onclick="startOcrMock()">サンプルで試す（デモ）</button>
       </div>
       <div id="receipt-step2" class="hidden">
         <div class="ai-thinking"><div class="spinner"></div><span>OCR解析中…食材名を抽出しています</span></div>
@@ -215,10 +245,18 @@
   <!-- ===== モーダル：バーコード ===== -->
   <div id="modal-barcode" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-head">📷 バーコードで登録</div>
-      <p class="hint-text">商品のJANコードを読み取って商品名を特定します。<br>
-      （プロトタイプのため、スキャンはシミュレーションです）</p>
-      <button class="primary-btn" onclick="simulateScan()">📡 スキャンをシミュレート</button>
+      <div class="modal-head">
+        <span class="modal-title">📷 バーコードで登録</span>
+        <button class="modal-close" onclick="closeModal('modal-barcode')" aria-label="閉じる">×</button>
+      </div>
+      <p class="hint-text">商品のJANコードを読み取って商品名を特定します。</p>
+      <video id="scan-video" playsinline muted class="hidden"></video>
+      <div id="scan-hint" class="hint-text"></div>
+      <div class="barcode-actions">
+        <button class="primary-btn hidden" id="btn-scan-camera" onclick="startBarcodeScan()">📷 カメラでスキャン</button>
+        <button class="small-btn hidden" id="btn-scan-photo" onclick="document.getElementById('barcode-photo').click()">🖼 バーコードの写真から読取</button>
+        <input type="file" accept="image/*" id="barcode-photo" hidden onchange="handleBarcodePhoto(this)">
+      </div>
       <div class="form-row">
         <label>JANコード直接入力</label>
         <input type="text" id="jan-input" placeholder="例：4901111111111" maxlength="13">
@@ -245,6 +283,8 @@
   </div>
 </div>
 
+<script src="ai.js"></script>
+<script src="scanner.js"></script>
 <script src="app.js"></script>
 <script src="pwa.js"></script>
 </body>

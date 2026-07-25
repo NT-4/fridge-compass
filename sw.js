@@ -2,7 +2,7 @@
  * 完全オフライン動作用。アプリシェルをプリキャッシュし、
  * ナビゲーションは network-first（更新を拾う）、静的資産は cache-first。
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = `fridge-compass-${VERSION}`;
 
 const APP_SHELL = [
@@ -10,6 +10,8 @@ const APP_SHELL = [
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./ai.js",
+  "./scanner.js",
   "./pwa.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

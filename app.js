@@ -1,6 +1,6 @@
 /* ============================================================
  * 冷蔵庫コンパス — 冷蔵庫管理アプリ プロトタイプ
- * OCR / バーコード / AIレシピ生成はモック動作。
+ * バーコード読取はscanner.js、レシートOCR/AIレシピはai.jsに委譲（APIキー未設定時はモック/ルールベースにフォールバック）。
  * データは localStorage に保存。
  * ============================================================ */
 
@@ -16,16 +16,6 @@ const CATEGORIES = {
   "調味料": 180,
   "飲料":   30,
   "その他":  7,
-};
-
-// ---------- バーコード（JAN）モック辞書 ----------
-const JAN_DB = {
-  "4901111111111": { name: "キッコーマン しょうゆ 500ml", category: "調味料",       unit: "ml", qty: 500 },
-  "4902222222222": { name: "明治おいしい牛乳 900ml",     category: "乳製品",       unit: "ml", qty: 900 },
-  "4903333333333": { name: "シャウエッセン ウインナー",   category: "加工食品",     unit: "個", qty: 1 },
-  "4904444444444": { name: "味の素 コンソメ 顆粒",       category: "調味料",       unit: "g",  qty: 50 },
-  "4905555555555": { name: "カゴメ トマトケチャップ",     category: "調味料",       unit: "ml", qty: 500 },
-  "4906666666666": { name: "森永 絹ごし豆腐 3個パック",   category: "豆腐・大豆製品", unit: "個", qty: 3 },
 };
 
 // ---------- 単位換算（大さじ/小さじ ⇔ ml/g） ----------
@@ -273,9 +263,26 @@ function openModal(id) {
   if (id === "modal-barcode") {
     document.getElementById("barcode-result").classList.add("hidden");
     document.getElementById("jan-input").value = "";
+    document.getElementById("scan-hint").textContent = "";
+    document.getElementById("scan-video").classList.add("hidden");
+    document.getElementById("btn-scan-camera").classList.toggle(
+      "hidden", !(window.Scanner && Scanner.isNativeScanSupported()));
+    document.getElementById("btn-scan-photo").classList.toggle(
+      "hidden", !(window.AI && AI.hasKey()));
+    document.getElementById("barcode-photo").value = "";
   }
 }
-function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+function closeModal(id) {
+  document.getElementById(id).classList.add("hidden");
+  if (id === "modal-receipt" && ocrTimer !== null) {
+    clearTimeout(ocrTimer);
+    ocrTimer = null;
+  }
+  if (id === "modal-barcode") {
+    if (window.Scanner) Scanner.stopCamera();
+    document.getElementById("scan-video").classList.add("hidden");
+  }
+}
 
 // ---------- 在庫：手入力 ----------
 function updateManualExpiryDefault() {
@@ -308,27 +315,75 @@ function submitManual() {
   toast(`「${name}」を在庫に登録しました`);
 }
 
-// ---------- 在庫：レシートOCR（モック） ----------
-function startOcr() {
+// ---------- 在庫：レシートOCR ----------
+let ocrTimer = null;
+function startOcrMock() {
   document.getElementById("receipt-step1").classList.add("hidden");
   document.getElementById("receipt-step2").classList.remove("hidden");
-  setTimeout(() => {
+  ocrTimer = setTimeout(() => {
+    ocrTimer = null;
     document.getElementById("receipt-step2").classList.add("hidden");
     document.getElementById("receipt-step3").classList.remove("hidden");
     renderOcrResults();
   }, 1500);
 }
-function renderOcrResults() {
+
+async function handleReceiptFile(inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+
+  if (!window.AI || !AI.hasKey()) {
+    toast("設定画面でAPIキーを登録すると自動読取が使えます");
+    inputEl.value = "";
+    startOcrMock();
+    return;
+  }
+
+  document.getElementById("receipt-step1").classList.add("hidden");
+  document.getElementById("receipt-step2").classList.remove("hidden");
+  document.getElementById("receipt-step3").classList.add("hidden");
+
+  try {
+    const result = await AI.ocrReceipt(file);
+    if (document.getElementById("modal-receipt").classList.contains("hidden")) return;
+    const items = (result && result.items) || [];
+    if (items.length === 0) {
+      document.getElementById("receipt-step2").classList.add("hidden");
+      document.getElementById("receipt-step1").classList.remove("hidden");
+      toast("食材を読み取れませんでした。写真を撮り直すか手入力してください");
+      return;
+    }
+    document.getElementById("receipt-step2").classList.add("hidden");
+    document.getElementById("receipt-step3").classList.remove("hidden");
+    renderOcrResults(items);
+  } catch (err) {
+    if (document.getElementById("modal-receipt").classList.contains("hidden")) return;
+    document.getElementById("receipt-step2").classList.add("hidden");
+    document.getElementById("receipt-step1").classList.remove("hidden");
+    toast(err && err.message ? err.message : "レシートの読み取りに失敗しました");
+  } finally {
+    inputEl.value = "";
+  }
+}
+
+function renderOcrResults(items) {
+  const list = items || OCR_SAMPLE;
   const wrap = document.getElementById("ocr-results");
   const catOptions = Object.keys(CATEGORIES)
     .map((c) => `<option value="${c}">${c}</option>`).join("");
-  let html = `<div class="ocr-row ocr-head"><span>食材名</span><span>カテゴリ</span><span>賞味期限</span></div>`;
-  OCR_SAMPLE.forEach((item, i) => {
-    const expiry = toYmd(addDays(new Date(), CATEGORIES[item.category]));
+  const unitOptions = ["個", "ml", "g"].map((u) => `<option value="${u}">${u}</option>`).join("");
+  let html = `<div class="ocr-row ocr-head"><span>食材名</span><span>数量</span><span>単位</span><span>カテゴリ</span><span>期限</span></div>`;
+  list.forEach((item, i) => {
+    const category = CATEGORIES[item.category] !== undefined ? item.category : "その他";
+    const unit = item.unit || "個";
+    const qty = item.qty != null ? item.qty : 1;
+    const expiry = toYmd(addDays(new Date(), CATEGORIES[category] ?? 7));
     html += `
       <div class="ocr-row" data-i="${i}">
         <input type="text" class="ocr-name" value="${item.name}">
-        <select class="ocr-cat">${catOptions.replace(`value="${item.category}"`, `value="${item.category}" selected`)}</select>
+        <input type="number" class="ocr-qty" value="${qty}" min="0" step="1">
+        <select class="ocr-unit">${unitOptions.replace(`value="${unit}"`, `value="${unit}" selected`)}</select>
+        <select class="ocr-cat">${catOptions.replace(`value="${category}"`, `value="${category}" selected`)}</select>
         <input type="date" class="ocr-expiry" value="${expiry}">
       </div>`;
   });
@@ -339,42 +394,90 @@ function submitOcr() {
   let count = 0;
   rows.forEach((row) => {
     const name = row.querySelector(".ocr-name").value.trim();
+    const qty = parseFloat(row.querySelector(".ocr-qty").value) || 1;
+    const unit = row.querySelector(".ocr-unit").value;
     const cat = row.querySelector(".ocr-cat").value;
     const expiry = row.querySelector(".ocr-expiry").value;
-    if (name && expiry) { state.inventory.push(mkItem(name, 1, cat, expiry, "個")); count++; }
+    if (name && expiry) { state.inventory.push(mkItem(name, qty, cat, expiry, unit)); count++; }
   });
   save(); renderAll();
   closeModal("modal-receipt");
   toast(`レシートから${count}件を在庫に登録しました`);
 }
 
-// ---------- 在庫：バーコード（モック） ----------
-function simulateScan() {
-  const codes = Object.keys(JAN_DB);
-  const code = codes[Math.floor(Math.random() * codes.length)];
-  document.getElementById("jan-input").value = code;
-  lookupJan();
+// ---------- 在庫：バーコード ----------
+function startBarcodeScan() {
+  const video = document.getElementById("scan-video");
+  const hint = document.getElementById("scan-hint");
+  hint.textContent = "";
+  video.classList.remove("hidden");
+  Scanner.startCamera(video, function (code) {
+    video.classList.add("hidden");
+    document.getElementById("jan-input").value = code;
+    lookupJan();
+  }, function (err) {
+    video.classList.add("hidden");
+    hint.textContent = err && err.message ? err.message : "カメラの起動に失敗しました";
+  });
 }
-function lookupJan() {
+
+async function handleBarcodePhoto(inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  const hint = document.getElementById("scan-hint");
+  hint.textContent = "読取中…";
+  try {
+    const code = await AI.readBarcodeFromPhoto(file);
+    hint.textContent = "";
+    if (!code) { toast("バーコードを読み取れませんでした"); return; }
+    document.getElementById("jan-input").value = code;
+    lookupJan();
+  } catch (err) {
+    hint.textContent = "";
+    toast(err && err.message ? err.message : "バーコードの読み取りに失敗しました");
+  } finally {
+    inputEl.value = "";
+  }
+}
+
+let lastBarcodeLookup = null; // { code, hit } — 直前の Scanner.lookupJan 結果
+async function lookupJan() {
   const code = document.getElementById("jan-input").value.trim();
   const el = document.getElementById("barcode-result");
   el.classList.remove("hidden");
-  const hit = JAN_DB[code];
-  if (!hit) {
-    el.innerHTML = `❌ JANコード <b>${code || "(未入力)"}</b> に該当する商品が見つかりません。<br>
-      <span style="font-size:11px;color:#6b7d8a">お試し用コード: ${Object.keys(JAN_DB).slice(0, 3).join(" / ")}</span>`;
+
+  if (!window.Scanner || !Scanner.isValidJan(code)) {
+    lastBarcodeLookup = null;
+    el.innerHTML = `❌ JANコードの形式が正しくありません（8桁または13桁）`;
     return;
   }
-  const expiry = toYmd(addDays(new Date(), CATEGORIES[hit.category]));
-  el.innerHTML = `
-    ✅ <b>${hit.name}</b><br>
-    <span style="font-size:12px;color:#6b7d8a">カテゴリ: ${hit.category} ／ 数量: ${hit.qty}${hit.unit} ／ 賞味期限目安: ${expiry}</span><br>
-    <button class="small-btn" style="margin-top:8px" onclick="addFromBarcode('${code}')">この商品を在庫に登録</button>`;
+
+  el.innerHTML = `<span class="hint-text">検索中…</span>`;
+  try {
+    const result = await Scanner.lookupJan(code);
+    if (!result || !result.found) {
+      lastBarcodeLookup = null;
+      el.innerHTML = `
+        ❌ JANコード <b>${code}</b> に該当する商品が見つかりませんでした。<br>
+        <button class="small-btn" style="margin-top:8px" onclick="closeModal('modal-barcode');openModal('modal-manual')">手入力で登録する</button>`;
+      return;
+    }
+    lastBarcodeLookup = { code, hit: result };
+    const expiry = toYmd(addDays(new Date(), CATEGORIES[result.category] ?? 7));
+    const sourceLabel = result.source === "local" ? "内蔵辞書" : "Open Food Facts";
+    el.innerHTML = `
+      ✅ <b>${result.name}</b><br>
+      <span style="font-size:12px;color:#6b7d8a">カテゴリ: ${result.category} ／ 数量: ${result.qty}${result.unit} ／ 賞味期限目安: ${expiry} ／ 取得元: ${sourceLabel}</span><br>
+      <button class="small-btn" style="margin-top:8px" onclick="addFromBarcode('${code}')">この商品を在庫に登録</button>`;
+  } catch (err) {
+    lastBarcodeLookup = null;
+    el.innerHTML = `❌ 検索中にエラーが発生しました: ${err && err.message ? err.message : err}`;
+  }
 }
 function addFromBarcode(code) {
-  const hit = JAN_DB[code];
-  if (!hit) return;
-  const expiry = toYmd(addDays(new Date(), CATEGORIES[hit.category]));
+  if (!lastBarcodeLookup || lastBarcodeLookup.code !== code) return;
+  const hit = lastBarcodeLookup.hit;
+  const expiry = toYmd(addDays(new Date(), CATEGORIES[hit.category] ?? 7));
   state.inventory.push(mkItem(hit.name, hit.qty, hit.category, expiry, hit.unit));
   save(); renderAll();
   closeModal("modal-barcode");
@@ -486,13 +589,27 @@ function findStock(ingName) {
   return state.inventory.find((it) => nameMatches(it.name, ingName));
 }
 
-function suggestRecipes() {
+async function suggestRecipes() {
   const btn = document.getElementById("suggest-btn");
   const thinking = document.getElementById("ai-thinking");
   const results = document.getElementById("recipe-results");
   btn.disabled = true;
   results.innerHTML = "";
   thinking.classList.remove("hidden");
+
+  if (window.AI && AI.hasKey()) {
+    try {
+      const result = await AI.suggestRecipes(state.inventory);
+      renderAiRecipes((result && result.recipes) || []);
+    } catch (err) {
+      toast(err && err.message ? err.message : "AIレシピ生成に失敗しました。ルールベースの提案を表示します");
+      renderRecipeResults(rankRecipes());
+    } finally {
+      thinking.classList.add("hidden");
+      btn.disabled = false;
+    }
+    return;
+  }
 
   setTimeout(() => {
     thinking.classList.add("hidden");
@@ -598,6 +715,92 @@ function cookRecipe(recipeName) {
     : `${recipe.name}を作りました。`);
 }
 
+let lastAiRecipes = [];
+function renderAiRecipes(recipes) {
+  lastAiRecipes = recipes || [];
+  const results = document.getElementById("recipe-results");
+  if (lastAiRecipes.length === 0) {
+    results.innerHTML = `<p class="hint-text">AIがレシピを提案できませんでした。在庫を増やすか、後でもう一度お試しください。</p>`;
+    return;
+  }
+  results.innerHTML = lastAiRecipes.map((r, i) => {
+    const usedChips = (r.usedIngredients || []).map((n) => `<span class="ing-chip">${n}</span>`).join("");
+    const missingChips = (r.missingIngredients || []).length > 0
+      ? r.missingIngredients.map((n) => `<span class="ing-chip missing">${n}</span>`).join("")
+      : `<span class="hint-text">なし（すべて在庫でまかなえます）</span>`;
+    const seasonings = (r.seasonings || []).filter((s) => (s.tbsp || 0) > 0 || (s.tsp || 0) > 0);
+    const seasoningHtml = seasonings.length > 0
+      ? `<div class="ing-group-title">🧂 使う調味料</div>
+         <div class="ing-chips">${seasonings.map((s) => {
+           const parts = [];
+           if (s.tbsp) parts.push(`大さじ${s.tbsp}`);
+           if (s.tsp) parts.push(`小さじ${s.tsp}`);
+           return `<span class="ing-chip">${s.name} ${parts.join(" ")}</span>`;
+         }).join("")}</div>`
+      : "";
+    const steps = (r.steps || []).map((st) => `<li>${st}</li>`).join("");
+    const refUrl = "https://cookpad.com/search/" + encodeURIComponent(r.referenceQuery || r.name || "");
+    const missingBtn = (r.missingIngredients || []).length > 0
+      ? `<button class="missing-action" id="ai-missing-btn-${i}"
+           onclick='addMissingToShopping(${JSON.stringify(r.missingIngredients)}, "ai-missing-btn-${i}")'>
+           🛒 不足食材${r.missingIngredients.length}件を買い物リストへ追加</button>`
+      : "";
+    return `
+      <div class="recipe-card">
+        <div class="recipe-rank">おすすめ ${i + 1} 位</div>
+        <div class="recipe-name">${r.name}</div>
+        <div class="recipe-reason">💡 ${r.reason || ""}</div>
+        <div class="ing-group-title">✅ 使う食材</div>
+        <div class="ing-chips">${usedChips}</div>
+        <div class="ing-group-title">❌ 不足食材</div>
+        <div class="ing-chips">${missingChips}</div>
+        ${seasoningHtml}
+        <div class="ing-group-title">📝 作り方</div>
+        <ol class="recipe-steps">${steps}</ol>
+        <a class="recipe-link" href="${refUrl}" target="_blank" rel="noopener">🔗 参考レシピをWebで見る（クックパッド）</a>
+        <button class="cook-action" onclick="cookAiRecipe(${i})">🍽️ これを作った（在庫を減らす）</button>
+        ${missingBtn}
+      </div>`;
+  }).join("");
+}
+
+function cookAiRecipe(index) {
+  const recipe = lastAiRecipes[index];
+  if (!recipe) return;
+  const summary = [];
+  let anyFound = false;
+
+  (recipe.usedIngredients || []).forEach((name) => {
+    const hit = findStock(name);
+    if (!hit) return;
+    if (hit.unit === "個") {
+      anyFound = true;
+      hit.qty -= 1;
+      summary.push(`${hit.name} -1個`);
+    }
+  });
+
+  (recipe.seasonings || []).forEach((s) => {
+    if ((s.tbsp || 0) <= 0 && (s.tsp || 0) <= 0) return;
+    const hit = findStock(s.name);
+    if (!hit) return;
+    if (hit.unit === "ml" || hit.unit === "g") {
+      const amt = spoonToAmount(hit.name, hit.unit, { tbsp: s.tbsp, tsp: s.tsp });
+      if (amt <= 0) return;
+      anyFound = true;
+      hit.qty = Math.max(0, hit.qty - amt);
+      summary.push(`${hit.name} -${amt}${hit.unit}`);
+    }
+  });
+
+  if (!anyFound) { toast("在庫が足りません"); return; }
+  state.inventory = state.inventory.filter((it) => it.qty > 0);
+  save(); renderAll();
+  toast(summary.length > 0
+    ? `${recipe.name}を作りました。${summary.join("、")}`
+    : `${recipe.name}を作りました。`);
+}
+
 function addMissingToShopping(names, btnId) {
   let added = 0;
   names.forEach((name) => {
@@ -687,6 +890,59 @@ function renderShopping() {
     </li>`).join("");
 }
 
+// ---------- 設定：APIキー管理 ----------
+function maskApiKey(key) {
+  if (!key) return "";
+  const last4 = key.slice(-4);
+  const prefix = key.startsWith("sk-ant-") ? "sk-ant-" : key.slice(0, Math.min(3, key.length));
+  return `${prefix}…${last4}`;
+}
+function renderApiKeyState() {
+  const el = document.getElementById("api-key-status");
+  if (window.AI && AI.hasKey()) {
+    el.textContent = `設定済み（${maskApiKey(AI.getKey())}）`;
+  } else {
+    el.textContent = "未設定（レシートOCR・AIレシピはデモ/ルールベースで動作します）";
+  }
+}
+function toggleApiKeyVisibility() {
+  const input = document.getElementById("api-key-input");
+  const checked = document.getElementById("api-key-show").checked;
+  input.type = checked ? "text" : "password";
+}
+function saveApiKey() {
+  const input = document.getElementById("api-key-input");
+  const val = input.value.trim();
+  if (!val) { toast("APIキーを入力してください"); return; }
+  AI.setKey(val);
+  input.value = "";
+  renderApiKeyState();
+  toast("APIキーを保存しました");
+}
+async function testApiKey() {
+  const btn = document.getElementById("api-key-test-btn");
+  const el = document.getElementById("api-key-status");
+  const prevLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "テスト中…";
+  try {
+    const result = await AI.testKey();
+    toast(result.message);
+    el.textContent = result.ok
+      ? `接続テスト成功（${maskApiKey(AI.getKey())}）`
+      : `接続テスト失敗: ${result.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+function clearApiKey() {
+  if (!confirm("保存済みのAPIキーを削除しますか？")) return;
+  AI.clearKey();
+  renderApiKeyState();
+  toast("APIキーを削除しました");
+}
+
 // ---------- 設定 ----------
 function resetAll() {
   if (!confirm("在庫・買い物リストをすべて消去し、サンプルデータに戻します。よろしいですか？")) return;
@@ -726,7 +982,22 @@ function init() {
   // セッションごとにアラートを再表示
   state.alertDismissed = false;
 
+  // モーダル：背景タップで閉じる
+  document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeModal(overlay.id);
+    });
+  });
+
+  // モーダル：Escキーで閉じる
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const open = document.querySelector(".modal-overlay:not(.hidden)");
+    if (open) closeModal(open.id);
+  });
+
   renderAll();
+  renderApiKeyState();
 }
 
 init();
