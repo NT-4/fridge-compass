@@ -459,7 +459,7 @@ async function lookupJan() {
       lastBarcodeLookup = null;
       el.innerHTML = `
         ❌ JANコード <b>${code}</b> に該当する商品が見つかりませんでした。<br>
-        <button class="small-btn" style="margin-top:8px" onclick="closeModal('modal-barcode');openModal('modal-manual')">手入力で登録する</button>`;
+        <button class="small-btn btn-mt" onclick="closeModal('modal-barcode');openModal('modal-manual')">手入力で登録する</button>`;
       return;
     }
     lastBarcodeLookup = { code, hit: result };
@@ -467,8 +467,8 @@ async function lookupJan() {
     const sourceLabel = result.source === "local" ? "内蔵辞書" : "Open Food Facts";
     el.innerHTML = `
       ✅ <b>${result.name}</b><br>
-      <span style="font-size:12px;color:#6b7d8a">カテゴリ: ${result.category} ／ 数量: ${result.qty}${result.unit} ／ 賞味期限目安: ${expiry} ／ 取得元: ${sourceLabel}</span><br>
-      <button class="small-btn" style="margin-top:8px" onclick="addFromBarcode('${code}')">この商品を在庫に登録</button>`;
+      <span class="barcode-meta">カテゴリ: ${result.category} ／ 数量: ${result.qty}${result.unit} ／ 賞味期限目安: ${expiry} ／ 取得元: ${sourceLabel}</span><br>
+      <button class="small-btn btn-mt" onclick="addFromBarcode('${code}')">この商品を在庫に登録</button>`;
   } catch (err) {
     lastBarcodeLookup = null;
     el.innerHTML = `❌ 検索中にエラーが発生しました: ${err && err.message ? err.message : err}`;
@@ -500,8 +500,8 @@ function renderStock() {
     const lbl = expiryLabel(it.expiry);
     const cls = lbl.cls === "danger" ? "danger" : lbl.cls === "warn" ? "warn" : "";
     const qtyLabel = it.unit === "個"
-      ? `<span style="font-weight:400;font-size:12px">× ${it.qty}個</span>`
-      : `<span style="font-weight:400;font-size:12px">残り ${it.qty} ${it.unit}</span>`;
+      ? `<span class="stock-qty">× ${it.qty}個</span>`
+      : `<span class="stock-qty">残り ${it.qty} ${it.unit}</span>`;
     const consumeBtn = it.unit === "個"
       ? `<button class="icon-btn" title="1つ消費" onclick="consumeItem(${it.id})">−1</button>`
       : "";
@@ -886,7 +886,7 @@ function renderShopping() {
         <div class="shopping-name">${s.name}</div>
         <div class="shopping-src">${s.src || ""}</div>
       </div>
-      <button class="icon-btn" style="margin-left:auto" onclick="deleteShopping(${s.id})">🗑</button>
+      <button class="icon-btn btn-push-right" onclick="deleteShopping(${s.id})">🗑</button>
     </li>`).join("");
 }
 
