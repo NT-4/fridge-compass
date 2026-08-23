@@ -12,20 +12,20 @@ Service Worker（オフライン動作の中核）は **https:// でしか動き
 
 ---
 
-## 方法A：GitHub Pages（推奨・無料・恒久URL）
+## 方法A：GitHub Pages（設定済み・無料・恒久URL）
 
-このリポジトリには Pages 用のワークフロー（`.github/workflows/pages.yml`）が入っています。
+このリポジトリは **すでに GitHub Pages が有効**（Settings → Pages → Deploy from a branch / `main` / root）で、
+`main` に push すると1〜2分で自動反映されます。`.nojekyll` があるので素のファイルがそのまま配信されます。
 
-1. GitHub のリポジトリ画面 → **Settings → Pages**
-2. **Source** を `GitHub Actions` に変更（保存不要・選ぶだけ）
-3. `main` に push（またはマージ）すると自動でデプロイされ、数分後に公開
-4. 公開URL：**https://nt-4.github.io/fridge-compass/**
+- 公開URL：**https://nt-4.github.io/fridge-compass/**
+- デプロイ状況：リポジトリの **Actions → pages build and deployment** で確認できます
+
+つまり **公開＝`main` にマージすること** です。機能ブランチに置いたままだと公開サイトには出ません。
 
 ### まだ main にマージしていないブランチを、先にスマホで試したいとき
 
-Settings → Pages → Source を `Deploy from a branch` にして、
-ブランチに試したいブランチ（例 `claude/pomodoro-interval-timer-h384va`）、フォルダに `/ (root)` を選ぶと、
-同じURLでそのブランチの内容が公開されます。確認が済んだら Source を `GitHub Actions` に戻してください。
+Settings → Pages → **Branch** を試したいブランチ（例 `claude/pomodoro-interval-timer-h384va`）／`/ (root)` に
+変更して Save。1〜2分後、同じURLでそのブランチの内容が公開されます。確認が済んだら `main` に戻してください。
 
 ## 方法B：Netlify Drop（最速・ドラッグ&ドロップ）
 

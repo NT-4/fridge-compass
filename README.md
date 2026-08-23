@@ -77,9 +77,10 @@ App Store / Google Play も、Apple Developer Program（年$99）も、Mac も�
 iPhone / Android にアプリとして入れられます。HTTPS で公開して「ホーム画面に追加」する方式です。
 → 手順は **[DEPLOY_iOS.md](DEPLOY_iOS.md)** を参照。
 
-**いちばん早い手順**：GitHub の Settings → Pages → Source を `GitHub Actions` にして `main` に push
-（`.github/workflows/pages.yml` が自動デプロイします）→ `https://nt-4.github.io/fridge-compass/` を
-スマホのブラウザで開く → 共有メニューから「ホーム画面に追加」。
+GitHub Pages は設定済みで、**`main` に push すると1〜2分で
+`https://nt-4.github.io/fridge-compass/` に自動反映**されます。
+スマホのブラウザでそのURLを開き、共有メニューから「ホーム画面に追加」してください。
+（機能ブランチのままでは公開サイトに出ません。マージ前に試したい場合の手順は DEPLOY_iOS.md を参照）
 
 - Service Worker によりオフラインでも全機能が動作
 - ホーム画面から全画面起動（ノッチ/ホームバー＝セーフエリア対応済み）
@@ -97,6 +98,5 @@ iPhone / Android にアプリとして入れられます。HTTPS で公開して
 - `sw.js` — Service Worker（オフラインキャッシュ）
 - `manifest.webmanifest` — PWA マニフェスト
 - `icons/` — アプリアイコン（`make_icons.py` で生成）
-- `.github/workflows/pages.yml` — `main` への push で GitHub Pages へ自動デプロイ
 
 設定画面の「データを初期化」でいつでもサンプルデータに戻せます。
