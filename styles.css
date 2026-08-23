@@ -307,6 +307,110 @@ body {
   border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px 10px;
 }
 
+/* ===== ポモドーロ勉強タイマー ===== */
+.pomo-card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 18px 14px 16px;
+  margin-bottom: 14px;
+  text-align: center;
+  border-top: 4px solid var(--pomo-color);
+  --pomo-color: var(--accent);
+  --pomo-tint: var(--tint-accent);
+}
+.pomo-card.phase-focus { --pomo-color: var(--accent);  --pomo-tint: var(--tint-accent); }
+.pomo-card.phase-short { --pomo-color: var(--warn);    --pomo-tint: var(--tint-warn); }
+.pomo-card.phase-long  { --pomo-color: var(--safe);    --pomo-tint: var(--tint-safe); }
+
+.pomo-phase {
+  display: inline-block;
+  font-size: 13px; font-weight: 700;
+  color: var(--pomo-color);
+  background: var(--pomo-tint);
+  border-radius: var(--r-pill);
+  padding: 3px 14px;
+  margin-bottom: 12px;
+}
+.pomo-ring-wrap { position: relative; width: 220px; max-width: 72vw; margin: 0 auto; }
+.pomo-ring { width: 100%; height: auto; display: block; transform: rotate(-90deg); }
+.pomo-ring-bg { fill: none; stroke: var(--line); stroke-width: 8; }
+.pomo-ring-fg {
+  fill: none; stroke: var(--pomo-color); stroke-width: 8; stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+.pomo-time {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.pomo-card.running .pomo-time { color: var(--pomo-color); }
+
+.pomo-dots { display: flex; justify-content: center; gap: 7px; margin: 12px 0 14px; }
+.pomo-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--line);
+}
+.pomo-dot.on { background: var(--pomo-color); }
+
+.pomo-controls { display: flex; align-items: center; gap: 8px; }
+.pomo-controls .small-btn { flex: 0 0 auto; white-space: nowrap; }
+.pomo-main-btn { flex: 1; background: var(--pomo-color); }
+.pomo-main-btn:hover { filter: brightness(0.93); background: var(--pomo-color); }
+
+/* 学習の記録 */
+.pomo-stats { display: flex; gap: 10px; margin-bottom: 14px; }
+.pomo-stat {
+  flex: 1;
+  background: var(--tint-accent);
+  border-radius: var(--r-md);
+  padding: 10px;
+  text-align: center;
+}
+.pomo-stat b { display: block; font-size: 22px; color: var(--accent-dark); line-height: 1.2; }
+.pomo-stat span { font-size: 11px; color: var(--sub); }
+
+.pomo-history-cap { font-size: 11px; color: var(--sub); margin-bottom: 4px; }
+.pomo-history { display: flex; gap: 6px; align-items: flex-end; margin-bottom: 12px; }
+.pomo-bar-col { flex: 1; text-align: center; }
+.pomo-bar-track {
+  height: 56px; display: flex; align-items: flex-end;
+  background: var(--bg); border-radius: var(--r-sm); overflow: hidden;
+}
+.pomo-bar { width: 100%; background: var(--accent); border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.pomo-bar-num { font-size: 10px; color: var(--accent-dark); height: 14px; }
+.pomo-bar-label { font-size: 10px; color: var(--sub); }
+
+/* タイマー設定 */
+.pomo-presets { display: flex; gap: 8px; margin-bottom: 12px; }
+.pomo-preset {
+  flex: 1;
+  background: var(--white); color: var(--sub);
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  padding: 6px 0; font-size: 12px; cursor: pointer;
+}
+.pomo-preset:hover { border-color: var(--accent); color: var(--accent); }
+.pomo-setting-grid {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center; gap: 8px 10px;
+  font-size: 13px; margin-bottom: 12px;
+}
+.pomo-setting-grid input[type="number"] {
+  width: 76px; text-align: right;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 6px 8px; font-size: 13px; background: var(--white); color: var(--text);
+}
+#screen-timer .setting-row .small-btn { margin-left: auto; }
+
+/* タブの実行中インジケータ */
+.badge.dot {
+  min-width: 8px; width: 8px; height: 8px; padding: 0;
+  background: var(--accent); right: 26%;
+}
+
 /* タブバー */
 .tab-bar {
   position: fixed; bottom: 0; left: 50%;

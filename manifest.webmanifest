@@ -41,6 +41,11 @@
       "name": "お買い物リスト",
       "short_name": "買い物",
       "url": "./index.html?screen=shopping"
+    },
+    {
+      "name": "ポモドーロ勉強タイマー",
+      "short_name": "勉強タイマー",
+      "url": "./index.html?screen=timer"
     }
   ]
 }

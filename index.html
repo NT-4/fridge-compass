@@ -111,6 +111,70 @@
       </div>
     </section>
 
+    <!-- ===== 勉強タイマー（ポモドーロ）画面 ===== -->
+    <section id="screen-timer" class="screen hidden">
+      <div class="section-head">
+        <h2>勉強タイマー</h2>
+        <span class="stock-count" id="pomo-set-label"></span>
+      </div>
+
+      <div class="pomo-card phase-focus" id="pomo-card">
+        <div class="pomo-phase" id="pomo-phase">📖 集中</div>
+        <div class="pomo-ring-wrap">
+          <svg class="pomo-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="pomo-ring-bg" cx="60" cy="60" r="54"></circle>
+            <circle class="pomo-ring-fg" id="pomo-ring-fg" cx="60" cy="60" r="54"></circle>
+          </svg>
+          <div class="pomo-time" id="pomo-time" role="timer" aria-live="off">25:00</div>
+        </div>
+        <div class="pomo-dots" id="pomo-dots"></div>
+        <div class="pomo-controls">
+          <button class="small-btn ghost" onclick="pomoReset()">↺ リセット</button>
+          <button class="primary-btn pomo-main-btn" id="pomo-main-btn" onclick="pomoToggle()">▶ 開始</button>
+          <button class="small-btn ghost" onclick="pomoSkip()">⏭ 次へ</button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-label">📊 今日の記録</div>
+        <div class="pomo-stats">
+          <div class="pomo-stat"><b id="pomo-today-count">0</b><span>完了ポモドーロ</span></div>
+          <div class="pomo-stat"><b id="pomo-today-focus">0分</b><span>集中時間</span></div>
+        </div>
+        <div class="pomo-history-cap">直近7日間</div>
+        <div class="pomo-history" id="pomo-history"></div>
+        <button class="small-btn danger" onclick="pomoResetHistory()">記録を消去</button>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-label">⏱ タイマー設定</div>
+        <div class="pomo-presets" id="pomo-presets"></div>
+        <div class="pomo-setting-grid">
+          <label for="pomo-focus">集中（分）</label>
+          <input type="number" id="pomo-focus" min="1" max="180" onchange="pomoSaveSettings()">
+          <label for="pomo-short">小休憩（分）</label>
+          <input type="number" id="pomo-short" min="1" max="60" onchange="pomoSaveSettings()">
+          <label for="pomo-long">長い休憩（分）</label>
+          <input type="number" id="pomo-long" min="1" max="120" onchange="pomoSaveSettings()">
+          <label for="pomo-every">長い休憩の間隔（セット）</label>
+          <input type="number" id="pomo-every" min="1" max="12" onchange="pomoSaveSettings()">
+        </div>
+        <div class="setting-row">
+          <label><input type="checkbox" id="pomo-auto" onchange="pomoSaveSettings()"> 次のフェーズを自動で開始する</label>
+        </div>
+        <div class="setting-row">
+          <label><input type="checkbox" id="pomo-sound" onchange="pomoSaveSettings()"> 終了時に音とバイブで知らせる</label>
+          <button class="small-btn ghost" onclick="pomoTestSound()">音をテスト</button>
+        </div>
+        <div class="setting-row">
+          <label><input type="checkbox" id="pomo-notify" onchange="pomoToggleNotify(this)"> 終了時にシステム通知を出す</label>
+        </div>
+        <p class="hint-text hint-xs">
+          タイマーは端末の時計を基準に動くので、他のタブを見ていても画面を消していてもズレません。実行中は（対応端末では）画面が自動で暗くならないようにします。
+        </p>
+      </div>
+    </section>
+
     <!-- ===== 設定画面 ===== -->
     <section id="screen-settings" class="screen hidden">
       <div class="section-head"><h2>設定</h2></div>
@@ -169,6 +233,9 @@
     </button>
     <button class="tab" data-screen="shopping" onclick="switchScreen('shopping')">
       <span class="tab-icon">🛒</span>買い物<span id="shopping-badge" class="badge hidden"></span>
+    </button>
+    <button class="tab" data-screen="timer" onclick="switchScreen('timer')">
+      <span class="tab-icon">⏱</span>勉強<span id="pomo-badge" class="badge dot hidden"></span>
     </button>
     <button class="tab" data-screen="settings" onclick="switchScreen('settings')">
       <span class="tab-icon">⚙️</span>設定
@@ -286,6 +353,7 @@
 <script src="ai.js"></script>
 <script src="scanner.js"></script>
 <script src="app.js"></script>
+<script src="timer.js"></script>
 <script src="pwa.js"></script>
 </body>
 </html>
