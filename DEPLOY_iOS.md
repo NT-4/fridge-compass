@@ -1,8 +1,8 @@
-# iPhone で使う（PWA 配信手順）
+# スマホで使う（PWA 配信手順）
 
-App Store 申請・Apple Developer Program（年$99）・Mac は**不要**。
-iPhone の Safari で開いて「ホーム画面に追加」すると、アプリと同じように全画面で起動し、
-オフラインでも動作します。
+App Store / Google Play への申請も、Apple Developer Program（年$99）も、Mac も**不要**。
+公開URLをスマホのブラウザで開いて「ホーム画面に追加」すると、アプリと同じように全画面で起動し、
+オフラインでも動作します（iPhone / Android 共通）。
 
 ## 重要：HTTPS が必須
 
@@ -14,27 +14,23 @@ Service Worker（オフライン動作の中核）は **https:// でしか動き
 
 ## 方法A：GitHub Pages（推奨・無料・恒久URL）
 
-1. GitHub でリポジトリを作成（例 `fridge-compass`）
-2. このフォルダの中身を push
+このリポジトリには Pages 用のワークフロー（`.github/workflows/pages.yml`）が入っています。
 
-```bash
-cd "C:/Users/taita/.claude/image generate/fridge-app"
-git init
-git add .
-git commit -m "冷蔵庫コンパス PWA"
-git branch -M main
-git remote add origin https://github.com/<あなたのID>/fridge-compass.git
-git push -u origin main
-```
+1. GitHub のリポジトリ画面 → **Settings → Pages**
+2. **Source** を `GitHub Actions` に変更（保存不要・選ぶだけ）
+3. `main` に push（またはマージ）すると自動でデプロイされ、数分後に公開
+4. 公開URL：**https://nt-4.github.io/fridge-compass/**
 
-3. GitHub のリポジトリ画面 → **Settings → Pages** → Source を `main` / `(root)` にして保存
-4. 数分後 `https://<あなたのID>.github.io/fridge-compass/` で公開される
-5. その URL を iPhone の Safari で開く
+### まだ main にマージしていないブランチを、先にスマホで試したいとき
+
+Settings → Pages → Source を `Deploy from a branch` にして、
+ブランチに試したいブランチ（例 `claude/pomodoro-interval-timer-h384va`）、フォルダに `/ (root)` を選ぶと、
+同じURLでそのブランチの内容が公開されます。確認が済んだら Source を `GitHub Actions` に戻してください。
 
 ## 方法B：Netlify Drop（最速・ドラッグ&ドロップ）
 
 1. https://app.netlify.com/drop を開く
-2. `fridge-app` フォルダをブラウザにドラッグ&ドロップ
+2. このリポジトリのフォルダをブラウザにドラッグ&ドロップ
 3. 即座に `https://xxxx.netlify.app` が発行される → iPhone Safari で開く
 
 アカウント登録なしでも一時URLが出ます（恒久運用なら登録推奨）。
@@ -42,7 +38,7 @@ git push -u origin main
 ## 方法C：同じ Wi-Fi 内で試すだけ（HTTPSなし・オフライン機能は無効）
 
 ```bash
-python -m http.server 8650 --directory "C:/Users/taita/.claude/image generate/fridge-app" --bind 0.0.0.0
+python -m http.server 8650 --bind 0.0.0.0   # リポジトリのルートで実行
 ```
 
 iPhone の Safari で `http://<PCのローカルIP>:8650` を開く。
@@ -51,17 +47,23 @@ iPhone の Safari で `http://<PCのローカルIP>:8650` を開く。
 
 ---
 
-## iPhone でのインストール手順（ユーザー操作）
+## スマホへのインストール手順（ユーザー操作）
+
+### iPhone / iPad（Safari）
 
 1. **Safari で**公開URLを開く（Chrome ではホーム画面追加が正しく動きません）
 2. 下部の **共有ボタン**（□に↑）をタップ
 3. **「ホーム画面に追加」** を選択
 4. 名前（冷蔵庫コンパス）を確認して「追加」
 
-ホーム画面のアイコンから起動すると、Safari のUIが消えて全画面のアプリとして動作します。
-アプリ内にも初回アクセス時に案内バナーが出ます。
+### Android（Chrome）
 
----
+1. Chrome で公開URLを開く
+2. 右上の **⋮** メニュー → **「アプリをインストール」**（または「ホーム画面に追加」）
+3. 確認して「インストール」
+
+ホーム画面のアイコンから起動すると、ブラウザのUIが消えて全画面のアプリとして動作します。
+アプリ内にも初回アクセス時に案内バナーが出ます（iOS のみ）。
 
 ## PWA の制約（App Store 版との違い）
 
@@ -74,6 +76,7 @@ iPhone の Safari で `http://<PCのローカルIP>:8650` を開く。
 | **プッシュ通知（賞味期限アラート）** | ⚠️ **iOS 16.4以降かつ「ホーム画面に追加」した場合のみ**可能。ホーム画面追加していない Safari タブでは不可 |
 | バックグラウンド定時通知 | ❌ 不可。アプリを開いた時にまとめて表示する方式が現実的 |
 | App Store 掲載 | ❌ されない（URL共有で配布） |
+| 勉強タイマー（音・バイブ） | ✅ 使用可。詳細と注意は下記「勉強タイマーをスマホで使う」を参照 |
 
 ### データ消失リスクへの対策（実装検討事項）
 iOS の Safari は、**7日間サイトを使わないとストレージを消去する**仕様があります
@@ -83,6 +86,32 @@ iOS の Safari は、**7日間サイトを使わないとストレージを消�
 - 設定画面に「データのエクスポート/インポート（JSON）」を追加
 
 ---
+
+## 勉強タイマーをスマホで使う
+
+スマホのブラウザは、画面を見ていない間 JavaScript のタイマーを大幅に間引きます。
+そのため本アプリのタイマーは、次の作りで実機でもズレないようにしています。
+
+- **残り時間は端末時計から計算**：`setInterval` の回数ではなく `Date.now()` との差で出すため、
+  他アプリを見ていても、間引かれても、戻ってきた瞬間に正しい残り時間になります
+- **終了音は「終了時刻」に前もって予約**：開始した時点でオーディオ側に絶対時刻で積むので、
+  JS が間引かれていても定刻に鳴ります
+- **実行中は画面を消さない**：Screen Wake Lock（iOS 16.4+ / Android Chrome 対応）で自動スリープを抑止
+
+### 使うときのコツ
+
+| やりたいこと | 操作 |
+|---|---|
+| 音を確実に鳴らす | 最初に一度「▶ 開始」をタップすること（ブラウザは無操作では音を出せない）。マナーモード中の iPhone は無音になるのでバイブか通知を併用 |
+| 画面を消しても知らせてほしい | 「終了時にシステム通知を出す」をオンにする。iPhone は**ホーム画面に追加した状態**でのみ通知が使えます（iOS 16.4以降） |
+| 別アプリで作業しながら測りたい | タイマーを開始してから他アプリへ。戻れば残り時間は正しく表示されます |
+
+### 割り切り
+
+- **アプリを完全に閉じると鳴りません**（バックグラウンドでの定時通知には Web Push が必要）。
+  ブラウザのタブを残したままにしてください
+- iPhone で画面をロックすると音が止まることがあります。実行中は Wake Lock で画面が消えないようにしていますが、
+  手動でロックした場合は通知（要ホーム画面追加）に頼ってください
 
 ## 現状の未実装項目（実運用前に対応が必要）
 

@@ -357,8 +357,8 @@ body {
 .pomo-dot.on { background: var(--pomo-color); }
 
 .pomo-controls { display: flex; align-items: center; gap: 8px; }
-.pomo-controls .small-btn { flex: 0 0 auto; white-space: nowrap; }
-.pomo-main-btn { flex: 1; background: var(--pomo-color); }
+.pomo-controls .small-btn { flex: 0 0 auto; white-space: nowrap; min-height: 46px; }
+.pomo-main-btn { flex: 1; min-height: 52px; background: var(--pomo-color); }
 .pomo-main-btn:hover { filter: brightness(0.93); background: var(--pomo-color); }
 
 /* 学習の記録 */
@@ -393,16 +393,40 @@ body {
   padding: 6px 0; font-size: 12px; cursor: pointer;
 }
 .pomo-preset:hover { border-color: var(--accent); color: var(--accent); }
-.pomo-setting-grid {
-  display: grid; grid-template-columns: 1fr auto;
-  align-items: center; gap: 8px 10px;
-  font-size: 13px; margin-bottom: 12px;
+.pomo-setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; margin-bottom: 8px;
 }
-.pomo-setting-grid input[type="number"] {
-  width: 76px; text-align: right;
+.pomo-stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.pomo-step {
+  width: 40px; height: 40px; flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--white); color: var(--accent);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.pomo-step:active { background: var(--tint-accent); }
+.pomo-setting-row input[type="number"] {
+  width: 62px; height: 40px; text-align: center;
   border: 1px solid var(--line); border-radius: var(--r-sm);
-  padding: 6px 8px; font-size: 13px; background: var(--white); color: var(--text);
+  /* 16px 未満だと iOS がフォーカス時に画面を勝手に拡大するため下げない */
+  padding: 6px 4px; font-size: 16px; background: var(--white); color: var(--text);
+  -moz-appearance: textfield;
 }
+.pomo-setting-row input[type="number"]::-webkit-outer-spin-button,
+.pomo-setting-row input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+
+/* スマホのタップ操作 */
+#screen-timer button,
+#screen-timer input,
+#screen-timer label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+#screen-timer .setting-row label,
+.pomo-phase, .pomo-time, .pomo-stat, .pomo-bar-label, .pomo-bar-num {
+  -webkit-user-select: none; user-select: none;
+}
+.pomo-preset { min-height: 40px; }
+#screen-timer .setting-row { min-height: 40px; }
 #screen-timer .setting-row .small-btn { margin-left: auto; }
 
 /* タブの実行中インジケータ */

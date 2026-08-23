@@ -149,15 +149,37 @@
       <div class="setting-card">
         <div class="setting-label">⏱ タイマー設定</div>
         <div class="pomo-presets" id="pomo-presets"></div>
-        <div class="pomo-setting-grid">
+        <div class="pomo-setting-row">
           <label for="pomo-focus">集中（分）</label>
-          <input type="number" id="pomo-focus" min="1" max="180" onchange="pomoSaveSettings()">
+          <div class="pomo-stepper">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-focus',-5)" aria-label="集中（分）を減らす">−</button>
+            <input type="number" id="pomo-focus" inputmode="numeric" min="1" max="180" step="5" onchange="pomoSaveSettings()">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-focus',5)" aria-label="集中（分）を増やす">＋</button>
+          </div>
+        </div>
+        <div class="pomo-setting-row">
           <label for="pomo-short">小休憩（分）</label>
-          <input type="number" id="pomo-short" min="1" max="60" onchange="pomoSaveSettings()">
+          <div class="pomo-stepper">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-short',-1)" aria-label="小休憩（分）を減らす">−</button>
+            <input type="number" id="pomo-short" inputmode="numeric" min="1" max="60" step="1" onchange="pomoSaveSettings()">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-short',1)" aria-label="小休憩（分）を増やす">＋</button>
+          </div>
+        </div>
+        <div class="pomo-setting-row">
           <label for="pomo-long">長い休憩（分）</label>
-          <input type="number" id="pomo-long" min="1" max="120" onchange="pomoSaveSettings()">
+          <div class="pomo-stepper">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-long',-5)" aria-label="長い休憩（分）を減らす">−</button>
+            <input type="number" id="pomo-long" inputmode="numeric" min="1" max="120" step="5" onchange="pomoSaveSettings()">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-long',5)" aria-label="長い休憩（分）を増やす">＋</button>
+          </div>
+        </div>
+        <div class="pomo-setting-row">
           <label for="pomo-every">長い休憩の間隔（セット）</label>
-          <input type="number" id="pomo-every" min="1" max="12" onchange="pomoSaveSettings()">
+          <div class="pomo-stepper">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-every',-1)" aria-label="長い休憩の間隔（セット）を減らす">−</button>
+            <input type="number" id="pomo-every" inputmode="numeric" min="1" max="12" step="1" onchange="pomoSaveSettings()">
+            <button type="button" class="pomo-step" onclick="pomoStep('pomo-every',1)" aria-label="長い休憩の間隔（セット）を増やす">＋</button>
+          </div>
         </div>
         <div class="setting-row">
           <label><input type="checkbox" id="pomo-auto" onchange="pomoSaveSettings()"> 次のフェーズを自動で開始する</label>

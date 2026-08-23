@@ -123,6 +123,7 @@ function pomoStart() {
   pomo.endAt = Date.now() + pomo.remainMs;
   pomo.running = true;
   pomoAudioUnlock();       // 最初のタップで音の再生許可を取っておく
+  pomoArmChime();          // 終了音を定刻に予約（画面を離れても鳴らすため）
   pomoRequestWakeLock();
   pomoStartTick();
   pomoSave();
@@ -135,6 +136,7 @@ function pomoPause() {
   pomo.running = false;
   pomo.endAt = null;
   pomoStopTick();
+  pomoDisarmChime();
   pomoReleaseWakeLock();
   pomoSave();
   pomoRender();
@@ -145,6 +147,7 @@ function pomoReset() {
   pomo.endAt = null;
   pomo.remainMs = pomoPhaseTotal();
   pomoStopTick();
+  pomoDisarmChime();
   pomoReleaseWakeLock();
   pomoSave();
   pomoRender();
@@ -171,6 +174,7 @@ function pomoGoPhase(next, autoStart) {
   pomo.running = false;
   pomo.endAt = null;
   pomoStopTick();
+  pomoDisarmChime();
   if (autoStart) pomoStart(); else { pomoReleaseWakeLock(); pomoSave(); pomoRender(); }
 }
 
@@ -192,7 +196,9 @@ function pomoCompletePhase(opts = {}) {
   const next = pomoNextPhase(false);
 
   if (!silent) {
-    pomoChime(finished === "focus" ? "focusEnd" : "breakEnd");
+    // 予約済みの音がすでに鳴っている場合は、バイブだけ追加する
+    if (pomoChimeArmed) { pomoChimeArmed = false; pomoVibrate(); }
+    else pomoChime(finished === "focus" ? "focusEnd" : "breakEnd");
     pomoNotify(
       `${POMO_PHASES[finished].icon} ${POMO_PHASES[finished].label}おわり`,
       `${POMO_PHASES[finished].end}（次：${POMO_PHASES[next].label} ${pomoPhaseTotal(next) / 60000}分）`
@@ -252,31 +258,77 @@ function pomoAudioUnlock() {
   } catch (e) { return null; }
 }
 
+let pomoScheduledNodes = [];   // 予約済みチャイムのオシレータ
+let pomoChimeArmed = false;    // 現フェーズの終了音を予約済みか
+
 const POMO_TONES = {
   focusEnd: [[880, 0], [1108, 0.18], [1318, 0.36]],  // 上がる3音＝おつかれさま
   breakEnd: [[1318, 0], [880, 0.2]],                 // 下がる2音＝再開
   test:     [[988, 0], [1318, 0.16]],
 };
 
-function pomoChime(kind) {
-  if (!pomo.settings.sound) return;
+// delaySec 秒後に鳴らす（0 = 即時）。返り値は音を出せたか。
+function pomoPlayTone(kind, delaySec = 0) {
+  if (!pomo.settings.sound) return false;
   const ctx = pomoAudioUnlock();
-  if (ctx) {
-    const now = ctx.currentTime;
-    (POMO_TONES[kind] || POMO_TONES.test).forEach(([freq, at]) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, now + at);
-      gain.gain.exponentialRampToValueAtTime(0.25, now + at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.35);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now + at);
-      osc.stop(now + at + 0.4);
-    });
+  if (!ctx || ctx.state !== "running") return false;
+  const base = ctx.currentTime + Math.max(0, delaySec);
+  (POMO_TONES[kind] || POMO_TONES.test).forEach(([freq, at]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, base + at);
+    gain.gain.exponentialRampToValueAtTime(0.25, base + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, base + at + 0.35);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(base + at);
+    osc.stop(base + at + 0.4);
+    osc.onended = () => { pomoScheduledNodes = pomoScheduledNodes.filter((n) => n.osc !== osc); };
+    pomoScheduledNodes.push({ osc, at: base + at });
+  });
+  return true;
+}
+
+function pomoVibrate() {
+  if (!pomo.settings.sound || !navigator.vibrate) return;
+  try { navigator.vibrate([120, 80, 120]); } catch (e) { /* ignore */ }
+}
+
+function pomoChime(kind) {
+  pomoPlayTone(kind, 0);
+  pomoVibrate();
+}
+
+/* スマホ対策：終了音を「終了時刻」に前もって予約しておく。
+ * 画面を見ていない間はブラウザが setInterval を大幅に間引くため、
+ * タイマーの発火を待って鳴らすと数十秒〜数分遅れることがある。
+ * オーディオ側に絶対時刻で積んでおけば、JSが止まっていても定刻に鳴る。 */
+function pomoArmChime() {
+  pomoDisarmChime();
+  if (!pomo.running || !pomo.settings.sound) return;
+  const remainSec = pomoRemain() / 1000;
+  if (remainSec <= 0 || remainSec > 3 * 3600) return;
+
+  const ctx = pomoAudioUnlock();
+  if (ctx && ctx.state === "suspended") {
+    // 初回タップ直後は resume() 完了待ち。完了してから予約する
+    ctx.resume().then(() => { if (pomo.running && !pomoChimeArmed) pomoArmChime(); }).catch(() => {});
+    return;
   }
-  if (navigator.vibrate) { try { navigator.vibrate([120, 80, 120]); } catch (e) { /* ignore */ } }
+  const kind = pomo.phase === "focus" ? "focusEnd" : "breakEnd";
+  pomoChimeArmed = pomoPlayTone(kind, remainSec);
+}
+
+function pomoDisarmChime() {
+  // 鳴っている最中の音は途切れさせず、これから鳴る予定の分だけ取り消す
+  const now = pomoAudioCtx ? pomoAudioCtx.currentTime : Infinity;
+  pomoScheduledNodes = pomoScheduledNodes.filter((n) => {
+    if (n.at <= now + 0.05) return true;
+    try { n.osc.stop(); n.osc.disconnect(); } catch (e) { /* ignore */ }
+    return false;
+  });
+  pomoChimeArmed = false;
 }
 
 function pomoTestSound() {
@@ -336,9 +388,19 @@ function pomoSaveSettings() {
 
   // 停止中なら、変更した長さをその場で反映
   if (!pomo.running) pomo.remainMs = pomoPhaseTotal();
+  else pomoArmChime();
   pomoSave();
   pomoRenderSettings();
   pomoRender();
+}
+
+// −/＋ ボタン（スマホでキーボードを出さずに調整するため）
+function pomoStep(id, delta) {
+  const el = document.getElementById(id);
+  const min = Number(el.min) || 1;
+  const max = Number(el.max) || 999;
+  el.value = pomoClamp((Number(el.value) || min) + delta, min, max, min);
+  pomoSaveSettings();
 }
 
 function pomoApplyPreset(i) {
@@ -455,7 +517,7 @@ function pomoInit() {
   // 復帰時：残り時間を取り直し、画面ロック抑止も張り直す
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
-    if (pomo.running) { pomoRequestWakeLock(); pomoStartTick(); }
+    if (pomo.running) { pomoRequestWakeLock(); pomoStartTick(); pomoArmChime(); }
     pomoRender();
   });
 

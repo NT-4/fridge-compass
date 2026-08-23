@@ -52,6 +52,13 @@ python -m http.server 8650 --directory fridge-app
 - **画面が消えない**: 実行中は Screen Wake Lock で自動スリープを抑止（対応端末のみ）
 - **学習の記録**: 今日の完了ポモドーロ数と集中時間、直近7日間のグラフ。記録は `fridge-compass-pomodoro-v1` に保存
 
+スマホのブラウザは画面を見ていない間 `setInterval` を大幅に間引くため、次の2点で実機の遅延を回避しています。
+
+1. 残り時間は端末時計との差分で毎回計算する（間引かれても戻った瞬間に正しい値になる）
+2. 終了音は開始時点でオーディオ側に**終了時刻を指定して予約**しておく（JSが止まっていても定刻に鳴る）
+
+スマホでの使い方のコツと制約は [DEPLOY_iOS.md の「勉強タイマーをスマホで使う」](DEPLOY_iOS.md#勉強タイマーをスマホで使う) を参照。
+
 ## 残っている割り切り
 
 - **プッシュ通知**: バナー表示のみ → Service Worker + Web Push が必要（iOSはホーム画面追加後のみ対応）
@@ -64,15 +71,21 @@ python -m http.server 8650 --directory fridge-app
 
 Service Worker が静的ファイルを cache-first でキャッシュするため、**JS/CSS を変更したら `sw.js` の `VERSION` を必ず上げてください**（例 `v3` → `v4`）。上げないと既存ユーザーには古いままの画面が表示され続けます。
 
-## iPhone で使う（PWA）
+## スマホで使う（PWA）
 
-Apple Developer Program（年$99）も Mac も不要で、iPhone にアプリとして入れられます。
-HTTPS で公開して Safari の「ホーム画面に追加」を使う方式です。
+App Store / Google Play も、Apple Developer Program（年$99）も、Mac も不要で、
+iPhone / Android にアプリとして入れられます。HTTPS で公開して「ホーム画面に追加」する方式です。
 → 手順は **[DEPLOY_iOS.md](DEPLOY_iOS.md)** を参照。
 
+**いちばん早い手順**：GitHub の Settings → Pages → Source を `GitHub Actions` にして `main` に push
+（`.github/workflows/pages.yml` が自動デプロイします）→ `https://nt-4.github.io/fridge-compass/` を
+スマホのブラウザで開く → 共有メニューから「ホーム画面に追加」。
+
 - Service Worker によりオフラインでも全機能が動作
-- ホーム画面から全画面起動（ノッチ/ホームバー対応済み）
+- ホーム画面から全画面起動（ノッチ/ホームバー＝セーフエリア対応済み）
 - iOS で開くと「ホーム画面に追加」の案内バナーを表示
+- タップ操作前提のUI：主要ボタンは46px以上、時間設定は −/＋ のステッパー、
+  入力欄は16pxでフォーカス時の自動ズームを防止、ダブルタップズームも無効化
 
 ## ファイル構成
 
@@ -84,5 +97,6 @@ HTTPS で公開して Safari の「ホーム画面に追加」を使う方式で
 - `sw.js` — Service Worker（オフラインキャッシュ）
 - `manifest.webmanifest` — PWA マニフェスト
 - `icons/` — アプリアイコン（`make_icons.py` で生成）
+- `.github/workflows/pages.yml` — `main` への push で GitHub Pages へ自動デプロイ
 
 設定画面の「データを初期化」でいつでもサンプルデータに戻せます。
